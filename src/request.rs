@@ -1,14 +1,15 @@
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, Read},
+    io::{self, BufRead, BufReader, Read, Write},
     net::ToSocketAddrs,
 };
 
 use eyre::{eyre, Context};
 
-use socket2::Socket;
-
-use crate::URL;
+use crate::{
+    stream::Stream,
+    url::{self, URL},
+};
 
 pub struct Response {
     headers: HashMap<String, String>,
@@ -16,23 +17,20 @@ pub struct Response {
 }
 
 pub fn request(url: &URL) -> eyre::Result<Response> {
-    // TODO: Skipped TLS support
-
-    let port = url.port.unwrap_or(80);
+    let port = url.port.unwrap_or(match url.scheme {
+        url::Scheme::HTTP => 80,
+        url::Scheme::HTTPS => 443,
+    });
     let addr = (url.host.as_str(), port)
         .to_socket_addrs()?
         .next()
         .expect("parses to one addr");
     tracing::trace!(?addr);
 
-    let s = Socket::new(
-        socket2::Domain::IPV4,
-        socket2::Type::STREAM,
-        Some(socket2::Protocol::TCP),
-    )?;
-
-    s.connect(&addr.into()).wrap_err("connect")?;
-    tracing::trace!("connected");
+    let mut stream = match url.scheme {
+        url::Scheme::HTTP => Stream::tcp_connect(addr)?,
+        url::Scheme::HTTPS => Stream::tls_connect(url.host.as_str(), addr)?,
+    };
 
     let req = format!(
         "GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n",
@@ -40,13 +38,10 @@ pub fn request(url: &URL) -> eyre::Result<Response> {
         host = url.host.as_str()
     );
     tracing::trace!(?req);
-    let req = req.as_bytes();
-    if s.send(req).wrap_err("send")? != req.len() {
-        return Err(eyre!("failed to send entire request"));
-    }
+    stream.write_all(req.as_bytes())?;
     tracing::trace!("sent request");
 
-    let mut resp = BufReader::new(s);
+    let mut resp = stream.into_buf_reader()?;
 
     let mut statusline = String::new();
     resp.read_line(&mut statusline)

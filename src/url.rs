@@ -6,10 +6,16 @@ use regex::bytes::Regex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct URL {
-    pub scheme: AsciiString,
+    pub scheme: Scheme,
     pub host: AsciiString,
     pub port: Option<u16>,
     pub path: AsciiString,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Scheme {
+    HTTP,
+    HTTPS,
 }
 
 impl URL {
@@ -36,7 +42,16 @@ impl URL {
         tracing::trace!(?caps, "matched URL regex");
 
         // We know this is valid ASCII because the input is
-        let scheme = caps["scheme"].as_ascii_str().unwrap().to_owned();
+        let scheme = match &caps["scheme"] {
+            b"http" => Scheme::HTTP,
+            b"https" => Scheme::HTTPS,
+            scheme => {
+                return Err(eyre!(
+                    "unsupported scheme: {}",
+                    scheme.as_ascii_str().unwrap()
+                ))
+            }
+        };
         let host = caps["host"].as_ascii_str().unwrap().to_owned();
         let path = if let Some(path) = caps.name("path") {
             path.as_bytes().as_ascii_str().unwrap().to_owned()
@@ -50,10 +65,6 @@ impl URL {
         } else {
             None
         };
-
-        if scheme != "http" {
-            return Err(eyre!("unsupported URL scheme: {}", scheme));
-        }
 
         let url = URL {
             scheme,

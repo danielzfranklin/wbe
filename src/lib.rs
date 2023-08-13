@@ -1,11 +1,14 @@
+#![feature(lazy_cell)]
+
 mod request;
-mod url;
+pub(crate) mod stream;
+pub mod url;
 
 use ascii::AsAsciiStr;
 use eyre::Context;
 
 pub use request::request;
-pub use url::URL;
+use url::URL;
 
 fn show(body: &str) {
     let mut in_angle = false;
