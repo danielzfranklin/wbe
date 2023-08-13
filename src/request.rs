@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fs,
     io::{self, BufRead, BufReader, Read, Write},
     net::ToSocketAddrs,
 };
@@ -17,9 +18,20 @@ pub struct Response {
 }
 
 pub fn request(url: &URL) -> eyre::Result<Response> {
+    if url.scheme == url::Scheme::File {
+        let path = url.path.as_str();
+        let body =
+            fs::read_to_string(path).wrap_err_with(|| eyre!("failed to read file: {path}"))?;
+        return Ok(Response {
+            headers: HashMap::new(),
+            body,
+        });
+    }
+
     let port = url.port.unwrap_or(match url.scheme {
         url::Scheme::HTTP => 80,
         url::Scheme::HTTPS => 443,
+        url::Scheme::File => unreachable!(),
     });
     let addr = (url.host.as_str(), port)
         .to_socket_addrs()?
@@ -30,6 +42,7 @@ pub fn request(url: &URL) -> eyre::Result<Response> {
     let mut stream = match url.scheme {
         url::Scheme::HTTP => Stream::tcp_connect(addr)?,
         url::Scheme::HTTPS => Stream::tls_connect(url.host.as_str(), addr)?,
+        url::Scheme::File => unreachable!(),
     };
 
     let req = format!(

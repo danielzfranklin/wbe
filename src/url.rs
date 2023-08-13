@@ -16,6 +16,7 @@ pub struct URL {
 pub enum Scheme {
     HTTP,
     HTTPS,
+    File,
 }
 
 impl URL {
@@ -45,6 +46,7 @@ impl URL {
         let scheme = match &caps["scheme"] {
             b"http" => Scheme::HTTP,
             b"https" => Scheme::HTTPS,
+            b"file" => Scheme::File,
             scheme => {
                 return Err(eyre!(
                     "unsupported scheme: {}",
