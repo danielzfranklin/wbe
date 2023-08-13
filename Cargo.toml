@@ -1,0 +1,17 @@
+[package]
+name = "wbe"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ascii = "1.1.0"
+eyre = "0.6.8"
+libc = "0.2.147"
+regex = "1.9.3"
+rustls = "0.21.6"
+socket2 = "0.5.3"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.17"
+webpki-roots = "0.25.2"
