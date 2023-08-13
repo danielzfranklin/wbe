@@ -58,10 +58,6 @@ pub fn request(url: &URL) -> eyre::Result<Response> {
         .ok_or_else(|| eyre!("expected status explanation"))?;
     tracing::trace!(?_version, ?status, ?explanation);
 
-    if status != "200" {
-        return Err(eyre!("status {status}: {explanation}"));
-    }
-
     let mut headers = HashMap::new();
     let mut header_line = String::new();
     loop {
